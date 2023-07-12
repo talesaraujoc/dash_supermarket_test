@@ -13,13 +13,14 @@ from plotly.subplots import make_subplots
 
 # ============ Config Inicial ==============
 
-app = dash.Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = dash.Dash(external_stylesheets=[dbc.themes.QUARTZ])
 server = app.server
 
 # ============ DataFrame ===================
 df = pd.read_excel('data/testedatasetv2b.xlsx')
 
 lista_rodadas = df['RODADA'].unique()
+lista_players = df['PLAYER'].unique()
 
 
 # ============ Layout ===================
@@ -34,13 +35,13 @@ app.layout = html.Div([
                 ]), id='rg/c1/r1'),
             
             dbc.Row(html.Div([
-                html.Hr(style={'margin-top':'150px','margin-bottom':'0px'}),
+                html.Hr(style={'margin-top':'295px','margin-bottom':'0px'}),
                 html.H5('Desempenho individual', style={'text-align':'center', 'margin-top':'0px'}),
                 html.H6('Player'),
-                dcc.Dropdown(options=['Lotta', 'Feitosa'], value='Lotta', id='dpd_02-rg/c1/r2')
+                dcc.Dropdown(options=lista_players, value='Lotta', id='dpd_02-rg/c1/r2')
                 ]),id='rg/c1/r2')
             ]),
-        style={'background-color':'yellow'}, md=2, id='rg/c1'),
+        md=2, id='rg/c1'),
         
         dbc.Col(html.Div([
             dbc.Row(html.Div([
@@ -48,11 +49,21 @@ app.layout = html.Div([
                 ]), 
             id='rg/c2/r1'),
             
-            dbc.Row([dbc.Col(html.Div([]),md=4, id='rg/c2/r2/c1'), dbc.Col(html.Div([dcc.Graph(id='grafico_individual')]),md=8, id='rg/c2/r2/c2')],
+            dbc.Row([
+                dbc.Col(html.Div([
+                    html.Img(id="logo_b", src=app.get_asset_url("hazin.png"), height=500)
+                    ]),
+                md=4, id='rg/c2/r2/c1'), 
+                dbc.Col(html.Div([
+                    dbc.Row(html.Div([
+                        dcc.Graph(id='grafico_jogador_individual_rg/c2/r2/c2/r2')
+                        ]), id='rg/c2/r2/c2/r1'),
+                    ]),
+                md=8, id='rg/c2/r2/c2')],
                     
             id='rg/c2/r2')
             ]),
-        style={'background-color':'green'}, md=10, id='rg/c2')
+        md=10, id='rg/c2')
     ], id='rg')
     
 ])
@@ -89,9 +100,26 @@ def update_grafico_um(value):
 
 
     fig.update_layout(title_text=f"Rodada {value}")
+    fig.update_layout({'plot_bgcolor': 'rgba(0,0,0,0)','paper_bgcolor': 'rgba(0,0,0,0)'})
+    return fig
+
+@app.callback(
+    Output('grafico_jogador_individual_rg/c2/r2/c2/r2', 'figure'),
+    Input('dpd_01-rg/c1/r1', 'value'),
+    Input('dpd_02-rg/c1/r2', 'value'))
+def update_grafico_individual(rodada, player):
+    df_player_selected = df.loc[df['RODADA']==rodada]
+    df_player_selected = df_player_selected.loc[df_player_selected['PLAYER']==player]
+    
+    fig = go.Figure(data=go.Bar(x=df_player_selected['PARTIDA'], y=df_player_selected['PTS']))
+    
+    fig.update_xaxes(title_font=dict(color='white'))
+    fig.update_layout({'plot_bgcolor': 'rgba(0,0,0,0)','paper_bgcolor': 'rgba(0,0,0,0)'})
     
     return fig
 
+
+    
 # ============ Servidor ===================
 if __name__=='__main__':
     app.run_server(debug=True)
