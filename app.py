@@ -1,6 +1,6 @@
-import dash
-from dash import html, dcc, Output, Input
+from dash import dash, html, dcc, Output, Input
 import dash_bootstrap_components as dbc
+from dash_bootstrap_templates import load_figure_template
 
 import pandas as pd
 import numpy as np
@@ -11,115 +11,180 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 
 
-# ============ Config Inicial ==============
+# Servidor
+load_figure_template("minty")
 
-app = dash.Dash(external_stylesheets=[dbc.themes.QUARTZ])
+app = dash.Dash(external_stylesheets=[dbc.themes.MINTY])
 server = app.server
 
-# ============ DataFrame ===================
-df = pd.read_excel('data/testedatasetv2b.xlsx')
-
-lista_rodadas = df['RODADA'].unique()
-lista_players = df['PLAYER'].unique()
 
 
-# ============ Layout ===================
+# DataFrame =================
+df = pd.read_csv('data/supermarket_sales.csv')
+df['Date'] = pd.to_datetime(df['Date'])
+df['Time'] = pd.to_datetime(df['Time'])
+
+lista_cidades = df['City'].value_counts().index
+
+
+
+# Pré-layout ================
+
+card = dbc.Card(
+    [
+        html.Img(id="logo_b", src=app.get_asset_url("supermarketlogo.png")),
+        dbc.CardBody(
+            [
+                html.H6("| Dashboard |", className="card-text", style={'text-align':'center', 'margin-top':'30px'}),
+                html.H6("| Análise de vendas: Trimestral |", className="card-text", style={'text-align':'center'}),
+                html.H4('Cidades:', id='html-1', style={'margin-top':'30px', 'font-size':'20px'}),
+                dcc.Checklist(options=lista_cidades, value=lista_cidades, id='checklist-1-cidades', inputStyle={'margin-right':'5px', 'margin-left':'20px'}),
+                html.H4('Variável de análise:', style={'font-size':'20px', 'margin-top':'35px'}),
+                dcc.RadioItems(options=['gross income','Rating'], value='Rating', id='rdi-1-categoria',inputStyle={'margin-right':'5px', 'margin-left':'20px'} ,inline=True),
+            ]
+        ),
+    ],
+    style={'margin':'10px', 'height':'90vh'}, 
+    id='card_01-rg/c1'
+)
+
+
+# Layout    =================
 app.layout = html.Div([
-    dbc.Row([
-        dbc.Col(html.Div([
-            dbc.Row(html.Div([
-                html.H4('MR League - Rumo ao Estrelato', style={'text-align':'center'}),
-                html.Hr(),
-                html.Label('Rodada:'),
-                dcc.Dropdown(options=lista_rodadas, value=lista_rodadas[0], id='dpd_01-rg/c1/r1')
-                ]), id='rg/c1/r1'),
-            
-            dbc.Row(html.Div([
-                html.Hr(style={'margin-top':'295px','margin-bottom':'0px'}),
-                html.H5('Desempenho individual', style={'text-align':'center', 'margin-top':'0px'}),
-                html.H6('Player'),
-                dcc.Dropdown(options=lista_players, value='Lotta', id='dpd_02-rg/c1/r2')
-                ]),id='rg/c1/r2')
-            ]),
-        md=2, id='rg/c1'),
+    dbc.Row(
+        [
+        dbc.Col([html.Div([
+            card
+            ])], sm=2, id='rg/c1'),
         
-        dbc.Col(html.Div([
-            dbc.Row(html.Div([
-                dcc.Graph(id='grafico_01_rg/c2/r1')
-                ]), 
-            id='rg/c2/r1'),
-            
-            dbc.Row([
-                dbc.Col(html.Div([
-                    html.Img(id="logo_b", src=app.get_asset_url("hazin.png"), height=500)
-                    ]),
-                md=4, id='rg/c2/r2/c1'), 
-                dbc.Col(html.Div([
-                    dbc.Row(html.Div([
-                        dcc.Graph(id='grafico_jogador_individual_rg/c2/r2/c2/r2')
-                        ]), id='rg/c2/r2/c2/r1'),
-                    ]),
-                md=8, id='rg/c2/r2/c2')],
-                    
-            id='rg/c2/r2')
-            ]),
-        md=10, id='rg/c2')
-    ], id='rg')
-    
-])
+        dbc.Col(
+            [
+            dbc.Row(
+                    [dbc.Col(dcc.Graph(id='grafico-1'),sm=4, id='rg/c2/r1/c1'), 
+                     dbc.Col(dcc.Graph(id='grafico-1/2'), sm=4, id='rg/c2/r1/c2'), 
+                     dbc.Col(dcc.Graph(id='grafico-1/3') ,sm=4, id='rg/c2/r1/c3')
+                     ], 
+                    ),
+            dbc.Row(dcc.Graph(id='grafico_2-c1')),
+            dbc.Row(dcc.Graph(id='grafico_last'))
+            ], sm=10, id='rg/c2'),
+        ])
+], style={'margin-top':'20px'})
 
-# ============ Callbacks ===================
+
+# Callbacks =================
 @app.callback(
-    Output('grafico_01_rg/c2/r1', 'figure'),
-    Input('dpd_01-rg/c1/r1', 'value'))
-def update_grafico_um(value):
-    df_rodada_x = df.loc[df['RODADA']==value]
+    Output('grafico-1', 'figure'),
+    Input('checklist-1-cidades', 'value'),
+    Input('rdi-1-categoria', 'value')
+)
+def update_layout(cidades, categoria):
+    df_selected = df[df['City'].isin(cidades)]
     
-    df_desempenho_times = df_rodada_x.groupby('TIME').agg({'V':'sum', 'E':'sum', 'D':'sum'})/6
-    df_desempenho_times = df_desempenho_times.reset_index()
+    if categoria == 'gross income':
+        df_selected = df_selected.groupby('City').agg({categoria:'sum'})
+        
+    elif categoria == 'Rating':
+        df_selected = df_selected.groupby('City').agg({categoria:'mean'})
     
-    df_pontuacao_player_rodada = df_rodada_x.groupby('PLAYER').agg({'PTS':'sum'}).reset_index()
-    df_pontuacao_player_rodada.sort_values(by='PTS', ascending=False, inplace=True)
+    fig = go.Figure(data=go.Bar(x=df_selected.index, y=df_selected[categoria]))
     
-    df_gols_rodada = df_rodada_x.groupby('PLAYER').agg({'GOL':'sum'}).reset_index()
-    df_gols_rodada = df_gols_rodada.sort_values(by='GOL', ascending=False)
+    fig.update_layout(margin=dict(l=0, r=0, t=20, b=20), height=200)
+    fig.update_yaxes(title_text=f"{categoria}")
     
-    df_assists_rodada = df_rodada_x.groupby('PLAYER').agg({'ASS':'sum'}).reset_index()
-    df_assists_rodada = df_assists_rodada.sort_values(by='ASS', ascending=False)
-    
-    fig = make_subplots(rows=1, cols=5, subplot_titles=('TIMES: V/E/D', 'Pontuação Individual', 'GOLS', 'ASSISTS'))
-    fig.add_trace(go.Bar(x=df_desempenho_times['TIME'], y=df_desempenho_times['V'], marker=dict(color='#3ADE3E'), showlegend=False, name='V'), row=1, col=1)
-    fig.add_trace(go.Bar(x=df_desempenho_times['TIME'], y=df_desempenho_times['E'], marker=dict(color='#FAE258'), showlegend=False, name='E'), row=1, col=1)
-    fig.add_trace(go.Bar(x=df_desempenho_times['TIME'], y=df_desempenho_times['D'], marker=dict(color='#F52D2A'), showlegend=False, name='D'), row=1, col=1)
-
-    fig.add_trace(go.Bar(x=df_pontuacao_player_rodada['PLAYER'], y=df_pontuacao_player_rodada['PTS'],marker=dict(color='#000000'), showlegend=False, name='PTS'), row=1, col=2)
-
-    fig.add_trace(go.Bar(x=df_gols_rodada['PLAYER'], y=df_gols_rodada['GOL'], showlegend=False, name='GOL', marker=dict(color='#F53189')), row=1, col=3)
-
-    fig.add_trace(go.Bar(x=df_assists_rodada['PLAYER'], y=df_assists_rodada['ASS'], showlegend=False,marker=dict(color='#19D3F5'), name='ASS'), row=1, col=4)
-
-
-    fig.update_layout(title_text=f"Rodada {value}")
-    fig.update_layout({'plot_bgcolor': 'rgba(0,0,0,0)','paper_bgcolor': 'rgba(0,0,0,0)'})
     return fig
 
 @app.callback(
-    Output('grafico_jogador_individual_rg/c2/r2/c2/r2', 'figure'),
-    Input('dpd_01-rg/c1/r1', 'value'),
-    Input('dpd_02-rg/c1/r2', 'value'))
-def update_grafico_individual(rodada, player):
-    df_player_selected = df.loc[df['RODADA']==rodada]
-    df_player_selected = df_player_selected.loc[df_player_selected['PLAYER']==player]
+    Output('grafico-1/2', 'figure'),
+    Input('checklist-1-cidades', 'value'),
+    Input('rdi-1-categoria', 'value')
+)
+def update_layout(cidades, categoria):
+    df_selected = df[df['City'].isin(cidades)]
     
-    fig = go.Figure(data=go.Bar(x=df_player_selected['PARTIDA'], y=df_player_selected['PTS']))
+    if categoria == 'gross income':
+        df_selected = df_selected.groupby(['City','Gender']).agg({categoria:'sum'})
+        df_selected = df_selected.reset_index()
+        
+    elif categoria == 'Rating':
+        df_selected = df_selected.groupby(['City','Gender']).agg({categoria:'mean'})
+        df_selected = df_selected.reset_index()
     
-    fig.update_xaxes(title_font=dict(color='white'))
-    fig.update_layout({'plot_bgcolor': 'rgba(0,0,0,0)','paper_bgcolor': 'rgba(0,0,0,0)'})
+    fig = px.bar(df_selected, x='Gender', y=categoria, color='City', barmode='group')
+    
+    fig.update_layout(margin=dict(l=0, r=0, t=20, b=20), height=200)
+    
+    return fig
+
+@app.callback(
+    Output('grafico-1/3', 'figure'),
+    Input('checklist-1-cidades', 'value'),
+    Input('rdi-1-categoria', 'value')
+)
+def update_layout(cidades, categoria):
+    df_selected_p = df[df['City'].isin(cidades)]
+    
+    if categoria == 'gross income':
+        df_selected_p = df_selected_p.groupby('Payment').agg({categoria:'sum'})
+        
+    elif categoria == 'Rating':
+        df_selected_p = df_selected_p.groupby('Payment').agg({categoria:'mean'})
+    
+    fig = go.Figure(data=go.Bar(y=df_selected_p.index, x=df_selected_p[categoria], orientation="h"))
+    
+    fig.update_layout(margin=dict(l=0, r=0, t=20, b=20), height=200)
+    fig.update_xaxes(title_text=f"{categoria}")
+    
+    return fig
+
+@app.callback(
+    Output('grafico_2-c1', 'figure'),
+    Input('checklist-1-cidades', 'value'),
+    Input('rdi-1-categoria', 'value')
+)
+def update_layout(cidades, categoria):
+    df_selected_p = df[df['City'].isin(cidades)]
+
+    if categoria == 'gross income':
+        df_selected_p = df_selected_p.groupby('Date').agg({categoria:'sum'})
+        df_selected_p = df_selected_p.reset_index()
+        
+    elif categoria == 'Rating':
+        df_selected_p = df_selected_p.groupby('Date').agg({categoria:'mean'})
+        df_selected_p = df_selected_p.reset_index()
+        
+    fig = px.bar(df_selected_p, x=df_selected_p['Date'], y=df_selected_p[categoria])
+    
+    fig.update_layout(margin=dict(l=0, r=0, t=20, b=20), height=300)
+    
+    return fig
+
+    
+
+@app.callback(
+    Output('grafico_last', 'figure'),
+    Input('checklist-1-cidades', 'value'),
+    Input('rdi-1-categoria', 'value')
+)
+def update_layout(cidades, categoria):
+    df_selected_p_l = df[df['City'].isin(cidades)]
+    
+    if categoria == 'gross income':
+        df_selected_p_l = df_selected_p_l.groupby(['Product line','City']).agg({categoria:'sum'})
+        df_selected_p_l = df_selected_p_l.reset_index()
+        
+    elif categoria == 'Rating':
+        df_selected_p_l = df_selected_p_l.groupby(['Product line','City']).agg({categoria:'mean'})
+        df_selected_p_l = df_selected_p_l.reset_index()
+        
+    fig = px.bar(df_selected_p_l, x=df_selected_p_l['Product line'], y=df_selected_p_l[categoria], color='City', barmode="group")
+    
+    fig.update_layout(margin=dict(l=0, r=0, t=20, b=20), height=500)
     
     return fig
 
 
-    
-# ============ Servidor ===================
+
+# Servidor  =================
 if __name__=='__main__':
     app.run_server(debug=True)
