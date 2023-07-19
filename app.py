@@ -22,7 +22,6 @@ server = app.server
 # DataFrame =================
 df = pd.read_csv('data/supermarket_sales.csv')
 df['Date'] = pd.to_datetime(df['Date'])
-df['Time'] = pd.to_datetime(df['Time'])
 
 lista_cidades = df['City'].value_counts().index
 
@@ -187,4 +186,4 @@ def update_layout(cidades, categoria):
 
 # Servidor  =================
 if __name__=='__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
