@@ -8,7 +8,6 @@ dash-table==5.0.0
 gitdb==4.0.10
 GitPython==3.1.31
 gunicorn==21.2.0
-numpy==1.23.4
 opencv-python==4.7.0.72
 pandas==1.5.1
 plotly==5.11.0
